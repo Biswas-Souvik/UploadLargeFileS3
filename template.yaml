@@ -1,0 +1,65 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Upload Large Files to S3
+
+Globals:
+  Function:
+    Runtime: nodejs24.x
+    Timeout: 5
+    MemorySize: 128
+    Environment:
+      Variables:
+        BUCKET_NAME: !Ref S3BucketSouvik
+        FOLDER_NAME_PREFIX: 'files/'
+
+Parameters:
+  UserName:
+    Type: String
+    Description: Name of the User, which will be used as a suffix for resource names
+    Default: souvik
+
+Resources:
+  S3BucketSouvik:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub 'large-files-bucket-${UserName}'
+
+  UploadLargeFileApiSouvik:
+    Type: AWS::Serverless::Api
+    Properties:
+      Name: !Sub 'UploadLargeFile-${UserName}'
+      StageName: test
+      EndpointConfiguration:
+        Type: REGIONAL
+
+  GetPresignedUrlSouvik:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: getPreSignedUrl.handler
+      CodeUri: ./
+      FunctionName: !Sub 'getPreSignedUrl-${UserName}'
+      Events:
+        CreateEndpoint:
+          Type: Api
+          Properties:
+            RestApiId: !Ref UploadLargeFileApiSouvik
+            Path: /presigned-url
+            Method: GET
+      Policies:
+        - S3WritePolicy:
+            BucketName: !Ref S3BucketSouvik
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        Minify: true
+        Target: 'esnext'
+        Sourcemap: true
+        EntryPoints:
+          - src/handlers/getPreSignedUrl.ts
+        External:
+          - '@aws-sdk/*'
+
+Outputs:
+  ApiUrlSouvik:
+    Description: 'Base URL for Pre signed URL API'
+    Value: !Sub 'https://${UploadLargeFileApiSouvik}.execute-api.${AWS::Region}.amazonaws.com/test/'
