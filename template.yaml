@@ -11,12 +11,17 @@ Globals:
       Variables:
         BUCKET_NAME: !Ref S3BucketSouvik
         FOLDER_NAME_PREFIX: 'files/'
+        FILE_SIZE_LIMIT: !Ref FileSizeinMb
 
 Parameters:
   UserName:
     Type: String
     Description: Name of the User, which will be used as a suffix for resource names
     Default: souvik
+  FileSizeinMb:
+    Type: Number
+    Description: The upper limit of file size in MB
+    Default: '1'
 
 Resources:
   S3BucketSouvik:

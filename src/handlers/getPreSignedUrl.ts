@@ -1,5 +1,5 @@
 import { GetPresignedUrlEvent } from '../types';
-import { generatePresignedUrl } from '../utils/s3.utils';
+import { generatePresignedUrlPost } from '../utils/s3.utils';
 
 const FOLDER_NAME_PREFIX = process.env.FOLDER_NAME_PREFIX;
 
@@ -16,7 +16,7 @@ export const handler = async (event: GetPresignedUrlEvent) => {
     if (!fileName) return createResponse('FileName is required', 400);
     const key = FOLDER_NAME_PREFIX + fileName;
 
-    const presignedUrl = await generatePresignedUrl(key);
+    const presignedUrl = await generatePresignedUrlPost(key);
 
     const output = { uploadUrl: presignedUrl, fileName: key };
     return createResponse(JSON.stringify(output), 200);
