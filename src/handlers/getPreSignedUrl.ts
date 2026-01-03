@@ -18,8 +18,7 @@ export const handler = async (event: GetPresignedUrlEvent) => {
 
     const presignedUrl = await generatePresignedUrlPost(key);
 
-    const output = presignedUrl;
-    return createResponse(JSON.stringify(output), 200);
+    return createResponse(JSON.stringify(presignedUrl), 200);
   } catch (error: unknown) {
     console.error((error as Error).message);
     return createResponse('Internal Server Error', 500);

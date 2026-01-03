@@ -1,3 +1,4 @@
+import { Conditions as PolicyEntry } from '@aws-sdk/s3-presigned-post/dist-types/types';
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { createPresignedPost } from '@aws-sdk/s3-presigned-post';
@@ -30,11 +31,11 @@ export const generatePresignedUrl = (key: string) => {
   return getSignedUrl(client, putCommand, { expiresIn: 3600 });
 };
 
-export const generatePresignedUrlPost = (key: string) => {
+export const generatePresignedUrlPost = async (key: string) => {
   try {
     const client = getS3Client();
     const fileSizeLimitinBytes = FILE_SIZE_IN_MB * 1024 * 1024;
-    const Conditions = [
+    const Conditions: PolicyEntry[] = [
       ['content-length-range', 0, fileSizeLimitinBytes],
       { bucket: BUCKET_NAME },
       ['starts-with', '$key', FOLDER_NAME_PREFIX],
@@ -42,7 +43,7 @@ export const generatePresignedUrlPost = (key: string) => {
     const Fields = {
       acl: 'bucket-owner-full-control',
     };
-    return createPresignedPost(client, {
+    return await createPresignedPost(client, {
       Bucket: BUCKET_NAME,
       Key: key,
       Conditions,
