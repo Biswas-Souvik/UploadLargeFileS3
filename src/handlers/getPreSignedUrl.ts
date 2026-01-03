@@ -18,7 +18,7 @@ export const handler = async (event: GetPresignedUrlEvent) => {
 
     const presignedUrl = await generatePresignedUrlPost(key);
 
-    const output = { uploadUrl: presignedUrl, fileName: key };
+    const output = presignedUrl;
     return createResponse(JSON.stringify(output), 200);
   } catch (error: unknown) {
     console.error((error as Error).message);

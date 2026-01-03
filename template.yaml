@@ -21,7 +21,7 @@ Parameters:
   FileSizeinMb:
     Type: Number
     Description: The upper limit of file size in MB
-    Default: '1'
+    Default: '1024'
 
 Resources:
   S3BucketSouvik:
