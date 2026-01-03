@@ -12,7 +12,7 @@ function createResponse(body: string, statusCode: Number = 200) {
 
 export const handler = async (event: GetPresignedUrlEvent) => {
   try {
-    const { fileName } = event.queryStringParameters;
+    const { fileName } = event.queryStringParameters ?? {};
     if (!fileName) return createResponse('FileName is required', 400);
     const key = FOLDER_NAME_PREFIX + fileName;
 
