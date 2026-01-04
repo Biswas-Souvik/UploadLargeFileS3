@@ -1,9 +1,8 @@
 import fs from 'fs';
 import path from 'path';
-import { start } from 'repl';
+import 'dotenv/config';
 
-const API_BASE_URL =
-  'https://5qj1feret6.execute-api.ap-south-1.amazonaws.com/test';
+const API_BASE_URL = process.env.API_BASE_URL!;
 const LOCAL_FILE_PATH = './files/SmallFile_1KB.yaml';
 
 interface ResponseData {
@@ -27,7 +26,7 @@ async function uploadFile() {
     const apiUrl = `${API_BASE_URL}/${uploadPath}?fileName=${fileName}`;
 
     console.log('📞 Calling API to get presigned POST');
-    console.log('➡️ API URL:', apiUrl);
+    console.log('➡️ API URL Path:', `${uploadPath}?fileName=${fileName}`);
 
     const presignRes = await fetch(apiUrl);
 
