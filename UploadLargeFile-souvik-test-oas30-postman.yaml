@@ -1,0 +1,20 @@
+openapi: "3.0.1"
+info:
+  title: "UploadLargeFile-souvik"
+  version: "1.0"
+servers:
+- url: "https://5qj1feret6.execute-api.ap-south-1.amazonaws.com/{basePath}"
+  variables:
+    basePath:
+      default: "test"
+paths:
+  /multipart/url:
+    post: {}
+  /presigned-url:
+    get: {}
+  /multipart/complete:
+    post: {}
+  /multipart/initiate:
+    post: {}
+components: {}
+x-amazon-apigateway-security-policy: "TLS_1_0"

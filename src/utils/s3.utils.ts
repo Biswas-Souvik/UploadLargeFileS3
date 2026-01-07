@@ -1,5 +1,12 @@
+import { MultipartUploadPart } from '../types';
 import { Conditions as PolicyEntry } from '@aws-sdk/s3-presigned-post/dist-types/types';
-import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
+import {
+  S3Client,
+  PutObjectCommand,
+  CreateMultipartUploadCommand,
+  UploadPartCommand,
+  CompleteMultipartUploadCommand,
+} from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { createPresignedPost } from '@aws-sdk/s3-presigned-post';
 
@@ -7,14 +14,14 @@ const FOLDER_NAME_PREFIX = process.env.FOLDER_NAME_PREFIX!;
 const BUCKET_NAME = process.env.BUCKET_NAME!;
 const FILE_SIZE_IN_MB = parseInt(process.env.FILE_SIZE_LIMIT!);
 
-let s3Client: S3Client | null = null;
+let S3CLIENT: S3Client | null = null;
 
 function getS3Client(): S3Client {
-  if (!s3Client) {
-    s3Client = new S3Client();
+  if (!S3CLIENT) {
+    S3CLIENT = new S3Client();
     console.log('Connected to S3 - Bucket: ', BUCKET_NAME);
   }
-  return s3Client;
+  return S3CLIENT;
 }
 
 function getPutCommand(key: string) {
@@ -55,3 +62,65 @@ export const generatePresignedUrlPost = async (key: string) => {
     throw new Error('Error Creating Presigned Url');
   }
 };
+
+export async function initiateMultipartUploadS3(
+  fileName: string,
+  mimeType: string
+) {
+  const command = new CreateMultipartUploadCommand({
+    Bucket: BUCKET_NAME,
+    Key: fileName,
+    ContentType: mimeType,
+  });
+
+  const s3Client = getS3Client();
+
+  const response = await s3Client.send(command);
+  return {
+    uploadId: response.UploadId,
+    key: response.Key,
+  };
+}
+
+export async function getPresignedUrls(
+  key: string,
+  uploadId: string,
+  partCount: number
+) {
+  const s3Client = getS3Client();
+  const presignedUrls = [];
+
+  for (let i = 1; i <= partCount; i++) {
+    const command = new UploadPartCommand({
+      Bucket: BUCKET_NAME,
+      Key: key,
+      UploadId: uploadId,
+      PartNumber: i,
+    });
+
+    const url = await getSignedUrl(s3Client, command, {
+      expiresIn: 900,
+    });
+    presignedUrls.push({ partNumber: i, url });
+  }
+  return presignedUrls;
+}
+
+export async function completeMultipartUpload(
+  key: string,
+  uploadId: string,
+  parts: MultipartUploadPart[]
+) {
+  const s3Client = getS3Client();
+  const command = new CompleteMultipartUploadCommand({
+    Bucket: BUCKET_NAME,
+    Key: key,
+    UploadId: uploadId,
+    MultipartUpload: {
+      Parts: parts.map((p) => ({ PartNumber: p.partNumber, ETag: p.ETag })),
+    },
+  });
+
+  const response = await s3Client.send(command);
+  return response;
+}

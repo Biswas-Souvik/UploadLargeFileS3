@@ -1,88 +1,113 @@
 import fs from 'fs';
 import path from 'path';
+import mime from 'mime-types';
 import 'dotenv/config';
 
-const API_BASE_URL = process.env.API_BASE_URL!;
-const LOCAL_FILE_PATH = './files/SmallFile_1KB.yaml';
+interface IntiateResponseData {
+  uploadId: string;
+  key: string;
+}
 
-interface ResponseData {
+interface UrlResponseData {
+  partNumber: string;
   url: string;
-  fields: Record<string, string>;
 }
 
-function getS3KeyFromUrl(s3Url: string): string {
-  const url = new URL(s3Url);
-
-  // remove leading "/" and decode %2F → /
-  return decodeURIComponent(url.pathname.slice(1));
-}
+const API_BASE_URL = process.env.API_BASE_URL!;
+const LOCAL_FILE_PATH = '.uploads/PokeAPI Walkthrough.mp4';
+const PART_SIZE = 5 * 1024 * 1024; // 5 MB in bytes
 
 async function uploadFile() {
   try {
-    console.log('🚀 Starting upload workflow');
-    const fileName = path.basename(LOCAL_FILE_PATH);
-    const uploadPath = 'presigned-url';
-
-    const apiUrl = `${API_BASE_URL}/${uploadPath}?fileName=${fileName}`;
-
-    console.log('📞 Calling API to get presigned POST');
-    console.log('➡️ API URL Path:', `${uploadPath}?fileName=${fileName}`);
-
-    const presignRes = await fetch(apiUrl);
-
-    if (!presignRes.ok) {
-      throw new Error(`Failed to get presigned URL: ${presignRes.status}`);
-    }
-
-    const data = (await presignRes.json()) as ResponseData;
-    // const data = sample_data;
-    const { url, fields } = data;
-
-    console.log('✅ Received presigned POST');
-    console.log('🔗 S3 URL:', url);
-    console.log('🧾 Fields returned:', Object.keys(fields));
-
-    // 2️⃣ Build multipart/form-data
-    console.log('📦 Preparing multipart form-data');
-
-    const form = new FormData();
-
-    // IMPORTANT: append all fields first
-    for (const [key, value] of Object.entries(fields)) {
-      form.append(key, value as string);
-    }
-
-    // file MUST be last
-    console.log('📤 Attaching file:', LOCAL_FILE_PATH);
-    const buffer = fs.readFileSync(LOCAL_FILE_PATH);
-
-    form.append('file', new Blob([buffer]), fileName);
-
-    // 3️⃣ Upload file to S3
-    console.log('⬆️ Uploading file to S3');
     const startTime = Date.now();
-    const uploadRes = await fetch(url, {
+    const fileName = path.basename(LOCAL_FILE_PATH);
+    const mimeType = mime.lookup(LOCAL_FILE_PATH);
+
+    const fileSize = fs.statSync(LOCAL_FILE_PATH).size;
+
+    const initiateResp = await fetch(`${API_BASE_URL}/multipart/initiate`, {
       method: 'POST',
-      body: form as any,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        fileName,
+        mimeType,
+      }),
     });
 
-    console.log('Upload Time: ', Date.now() - startTime, 'ms');
-
-    // 4️⃣ Handle response
-    if (uploadRes.status === 204) {
-      console.log('🎉 Upload successful (204 No Content)');
-      const location = uploadRes.headers.get('location')!;
-      console.log('📍 Uploaded S3 Key: ', getS3KeyFromUrl(location));
-    } else {
-      console.error('❌ Upload failed');
-      console.error('Status:', uploadRes.status);
-      console.error('Response:', await uploadRes.text());
+    if (!initiateResp.ok) {
+      throw new Error('Initiate upload failed');
     }
-  } catch (err: any) {
-    console.error('💥 Error during upload');
-    console.error(err.message);
+    const initiateRespData = (await initiateResp.json()) as IntiateResponseData;
+    console.log('Initiate Upload Resp: ', initiateRespData);
+
+    const { uploadId, key } = initiateRespData;
+    if (!uploadId || !key) {
+      throw new Error('Invalid initiate response');
+    }
+    const partCount = Math.ceil(fileSize / PART_SIZE);
+
+    const urlResp = await fetch(`${API_BASE_URL}/multipart/url`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ key, uploadId, partCount }),
+    });
+
+    if (!urlResp.ok) {
+      throw new Error('Failed to get presigned URLs');
+    }
+    const urlRespData = (await urlResp.json()) as UrlResponseData[];
+    console.log('Presigned URLs: ', urlRespData);
+
+    const totalParts = urlRespData.length;
+
+    const fileStream = fs.createReadStream(LOCAL_FILE_PATH, {
+      highWaterMark: PART_SIZE,
+    });
+
+    let i = 0;
+    const uploadedParts = [];
+
+    for await (const chunk of fileStream) {
+      const { partNumber, url } = urlRespData[i];
+
+      const res = await fetch(url, {
+        method: 'PUT',
+        body: chunk,
+      });
+      if (!res.ok) {
+        throw new Error(`Upload failed at part ${i}: ${await res.text()}`);
+      }
+
+      const etag = res.headers.get('ETag');
+      if (!etag) throw new Error('ETag missing');
+
+      console.log(res.headers);
+
+      uploadedParts.push({
+        partNumber,
+        ETag: etag,
+      });
+      console.log(`Uploaded part ${i + 1}/${totalParts}`);
+      i++;
+    }
+
+    const completeRes = await fetch(`${API_BASE_URL}/multipart/complete`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ key, uploadId, parts: uploadedParts }),
+    });
+
+    if (!completeRes.ok) {
+      throw new Error(`Complete upload failed: ${await completeRes.text()}`);
+    }
+    const completeRespData = (await completeRes.json()) as { Location: string };
+
+    console.log('Multipart Upload Completed');
+    console.log('Time Taken: ', (Date.now() - startTime) / 1000, 'seconds');
+    console.log('File Location: ', completeRespData.Location);
+  } catch (err: unknown) {
+    console.error('Error during upload: ', (err as Error).message);
   }
 }
 
-// Run
 uploadFile();

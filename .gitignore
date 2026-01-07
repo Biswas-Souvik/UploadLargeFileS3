@@ -3,6 +3,6 @@ node_modules
 .aws-sam
 .env
 samconfig.toml
-files
+.uploads
 .jest
 coverage

@@ -64,6 +64,87 @@ Resources:
         External:
           - '@aws-sdk/*'
 
+  InitiateMultipartUploadSouvik:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: initiateMultipartUpload.handler
+      CodeUri: ./
+      FunctionName: !Sub 'initiateMultipartUpload-${UserName}'
+      Events:
+        CreateEndpoint:
+          Type: Api
+          Properties:
+            RestApiId: !Ref UploadLargeFileApiSouvik
+            Path: /multipart/initiate
+            Method: POST
+      Policies:
+        - S3WritePolicy:
+            BucketName: !Ref S3BucketSouvik
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        Minify: true
+        Target: 'esnext'
+        Sourcemap: true
+        EntryPoints:
+          - src/handlers/initiateMultipartUpload.ts
+        External:
+          - '@aws-sdk/*'
+
+  GeneratePresignedUrlsSouvik:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: generatePresignedUrlsMultipart.handler
+      CodeUri: ./
+      FunctionName: !Sub 'generatePresignedUrlsMultipart-${UserName}'
+      Events:
+        CreateEndpoint:
+          Type: Api
+          Properties:
+            RestApiId: !Ref UploadLargeFileApiSouvik
+            Path: /multipart/url
+            Method: POST
+      Policies:
+        - S3WritePolicy:
+            BucketName: !Ref S3BucketSouvik
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        Minify: true
+        Target: 'esnext'
+        Sourcemap: true
+        EntryPoints:
+          - src/handlers/generatePresignedUrlsMultipart.ts
+        External:
+          - '@aws-sdk/*'
+
+  CompleteMultipartUploadSouvik:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: completeMultipartUpload.handler
+      CodeUri: ./
+      FunctionName: !Sub 'completeMultipartUpload-${UserName}'
+      Events:
+        CreateEndpoint:
+          Type: Api
+          Properties:
+            RestApiId: !Ref UploadLargeFileApiSouvik
+            Path: /multipart/complete
+            Method: POST
+      Policies:
+        - S3WritePolicy:
+            BucketName: !Ref S3BucketSouvik
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        Minify: true
+        Target: 'esnext'
+        Sourcemap: true
+        EntryPoints:
+          - src/handlers/completeMultipartUpload.ts
+        External:
+          - '@aws-sdk/*'
+
 Outputs:
   ApiUrlSouvik:
     Description: 'Base URL for Pre signed URL API'
